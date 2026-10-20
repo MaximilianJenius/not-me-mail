@@ -1,0 +1,15 @@
+{
+  "imap_host": "outlook.office365.com",
+  "imap_port": 993,
+  "username": "you@hotmail.sg",
+  "auth": "outlook_oauth",
+  "outlook_client_id": "PASTE-YOUR-AZURE-APP-CLIENT-ID",
+  "outlook_authority": "https://login.microsoftonline.com/consumers",
+
+  "my_addresses": ["you@hotmail.sg"],
+  "my_names": ["Your First Name", "Nickname"],
+  "known_service_domains": ["shopee.sg", "grab.com"],
+
+  "scan_folder": "INBOX",
+  "target_folder": "Not Me"
+}
