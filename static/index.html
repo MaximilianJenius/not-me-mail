@@ -65,6 +65,12 @@
   <h1>Not Me Mail</h1>
   <div class="muted">Finds ads and sign-ups that reached your inbox but were meant for someone else using your address.</div>
 
+  <section class="panel hidden" id="demoBanner" style="border-color:var(--accent)">
+    <b>Live demo with made-up emails.</b> This page doesn't connect to any real mailbox.
+    To scan your own inbox, run the app on your computer. Setup steps are on
+    <a id="repoLink" href="#" target="_blank" rel="noopener">GitHub</a>.
+  </section>
+
   <section class="panel" id="setup">
     <div id="account" class="muted">Loading…</div>
     <div id="login" class="hidden" style="margin-top:12px"></div>
@@ -139,7 +145,45 @@ function el(tag, attrs = {}, ...kids) {
   return n;
 }
 
+// build_pages.py replaces the null below with pre-scored sample emails, so the page
+// can run on GitHub Pages without the Python server.
+const DEMO_DATA = /*DEMO_DATA*/null;
+const demo = { list: [], mine: new Set() };
+
+function summarize(rs) {
+  const count = (keys) => {
+    const m = new Map();
+    for (const k of keys) m.set(k, (m.get(k) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const flagged = rs.filter(r => r.level !== "clean");
+  return {
+    scanned: rs.length,
+    likely: rs.filter(r => r.level === "likely").length,
+    possible: rs.filter(r => r.level === "possible").length,
+    top_domains: count(flagged.map(r => r.sender_domain).filter(Boolean)).slice(0, 15),
+    top_names: count(flagged.flatMap(r => r.names_seen)).slice(0, 10),
+  };
+}
+
+function demoApi(path, body) {
+  const view = () => {
+    const rs = demo.list.map(m => demo.mine.has(m.base.sender_domain) ? m.if_mine : m.base);
+    return { results: rs, summary: summarize(rs) };
+  };
+  if (path === "/api/status") return { configured: true, ...DEMO_DATA.config };
+  if (path === "/api/scan") { demo.list = DEMO_DATA.messages.slice(0, body.limit); return view(); }
+  if (path === "/api/known-service") { demo.mine.add(body.domain); return view(); }
+  if (path === "/api/move") {
+    const gone = new Set(body.uids);
+    demo.list = demo.list.filter(m => !gone.has(m.base.uid));
+    return { message: `[demo] Moved ${gone.size} message(s) to '${DEMO_DATA.config.target_folder}'.`, ...view() };
+  }
+  throw new Error("Not available in the demo.");
+}
+
 async function api(path, body) {
+  if (DEMO_DATA) return demoApi(path, body);
   const opts = body === undefined ? {} :
     { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
   const r = await fetch(path, opts);
@@ -260,6 +304,10 @@ $("tabs").onclick = (e) => {
   render();
 };
 
+if (DEMO_DATA) {
+  $("demoBanner").classList.remove("hidden");
+  $("repoLink").href = DEMO_DATA.repo_url;
+}
 refreshStatus().catch(e => { $("account").textContent = e.message; });
 </script>
 </body>

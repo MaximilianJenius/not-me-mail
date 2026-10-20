@@ -6,6 +6,8 @@ when your address is easy to remember. You can then move the ones you pick into 
 
 It runs only on your computer (`127.0.0.1`). Your mail is never sent anywhere else.
 
+**Live demo:** https://maximilianjenius.github.io/not-me-mail/. It uses made-up emails and never connects to a real mailbox.
+
 ## How an email gets flagged
 
 | Signal | Points | Example |
@@ -71,6 +73,17 @@ $env:IMAP_PASSWORD = "your-app-password"; .venv\Scripts\python app.py
   It uses IMAP `MOVE` (or `UID EXPUNGE`), which affects only the selected emails.
 - Unsubscribe links are shown, never clicked. Clicking one tells the sender your address
   is real, so only use them for senders you trust.
+
+## Updating the live demo
+
+The demo page in `docs/` is built from `static/index.html`, with the sample emails from `demo.py`
+scored ahead of time. After changing either file, or `detector.py`, rebuild and commit:
+
+```bash
+.venv\Scripts\python build_pages.py
+```
+
+GitHub Pages serves the `docs/` folder of the `main` branch.
 
 ## Tests
 

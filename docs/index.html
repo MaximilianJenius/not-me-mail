@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not Me Mail</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --panel: #ffffff; --text: #1d2330; --muted: #667085; --line: #e3e6ec;
+    --accent: #3b5bdb; --accent-text: #fff; --likely: #c92a2a; --likely-bg: #fff0f0;
+    --possible: #b35c00; --possible-bg: #fff6e6; --clean: #2b8a3e; --clean-bg: #ebfbee;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #12151c; --panel: #1b1f29; --text: #e6e9ef; --muted: #98a1b3; --line: #2c3240;
+      --accent: #6c8cff; --accent-text: #0b0e14; --likely: #ff8787; --likely-bg: #3a1d20;
+      --possible: #ffc078; --possible-bg: #3a2c16; --clean: #8ce99a; --clean-bg: #1b3322;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  main { max-width: 1200px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 15px; margin: 0 0 10px; }
+  .muted { color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-top: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  label { display: inline-flex; gap: 6px; align-items: center; }
+  input[type=number] { width: 80px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px;
+                       background: var(--bg); color: var(--text); }
+  button { border: 1px solid var(--line); background: var(--panel); color: var(--text); padding: 7px 14px;
+           border-radius: 6px; cursor: pointer; font: inherit; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); font-weight: 600; }
+  button.danger { border-color: var(--likely); color: var(--likely); }
+  button:disabled { opacity: .5; cursor: default; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px; }
+  .card b { display: block; font-size: 26px; }
+  .split { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .split { grid-template-columns: 1fr; } }
+  ul.plain { list-style: none; margin: 0; padding: 0; }
+  ul.plain li { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); }
+  ul.plain li:last-child { border-bottom: 0; }
+  .tabs button.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .03em; color: var(--muted); }
+  td.subj { max-width: 340px; }
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
+  .badge.likely { color: var(--likely); background: var(--likely-bg); }
+  .badge.possible { color: var(--possible); background: var(--possible-bg); }
+  .badge.clean { color: var(--clean); background: var(--clean-bg); }
+  .reasons { margin: 4px 0 0; padding-left: 18px; color: var(--muted); font-size: 12.5px; }
+  .code { font: 600 22px ui-monospace, monospace; letter-spacing: .1em; }
+  #msg { min-height: 20px; }
+  #msg.err { color: var(--likely); }
+  .hidden { display: none !important; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Not Me Mail</h1>
+  <div class="muted">Finds ads and sign-ups that reached your inbox but were meant for someone else using your address.</div>
+
+  <section class="panel hidden" id="demoBanner" style="border-color:var(--accent)">
+    <b>Live demo with made-up emails.</b> This page doesn't connect to any real mailbox.
+    To scan your own inbox, run the app on your computer. Setup steps are on
+    <a id="repoLink" href="#" target="_blank" rel="noopener">GitHub</a>.
+  </section>
+
+  <section class="panel" id="setup">
+    <div id="account" class="muted">Loading…</div>
+    <div id="login" class="hidden" style="margin-top:12px"></div>
+  </section>
+
+  <section class="panel">
+    <div class="row">
+      <label>Last <input type="number" id="days" value="60" min="1" max="3650"> days</label>
+      <label>max <input type="number" id="limit" value="300" min="1" max="2000"> emails</label>
+      <button class="primary" id="scanBtn">Scan inbox</button>
+      <span id="msg"></span>
+    </div>
+    <div class="muted" style="margin-top:8px;font-size:12.5px">Scanning is read-only and won't mark anything as read.</div>
+  </section>
+
+  <section id="resultsArea" class="hidden">
+    <div class="cards" style="margin-top:16px">
+      <div class="card"><span class="muted">Scanned</span><b id="cScanned">0</b></div>
+      <div class="card"><span class="muted">Likely not you</span><b id="cLikely" style="color:var(--likely)">0</b></div>
+      <div class="card"><span class="muted">Possibly not you</span><b id="cPossible" style="color:var(--possible)">0</b></div>
+    </div>
+
+    <div class="split">
+      <section class="panel">
+        <div class="row" style="justify-content:space-between">
+          <div class="row tabs" id="tabs">
+            <button data-f="likely" class="on">Likely</button>
+            <button data-f="possible">Possible</button>
+            <button data-f="flagged">Both</button>
+            <button data-f="all">All</button>
+          </div>
+          <div class="row">
+            <label><input type="checkbox" id="selAll"> Select shown</label>
+            <button class="danger" id="moveBtn" disabled>Move to folder</button>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table>
+            <thead><tr><th></th><th>Verdict</th><th>From</th><th>Subject &amp; why</th><th>Date</th></tr></thead>
+            <tbody id="rows"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <div>
+        <section class="panel">
+          <h2>Senders mailing "not you"</h2>
+          <div class="muted" style="font-size:12.5px;margin-bottom:8px">
+            If one of these is actually yours, click <i>It's mine</i> so its account and order emails stop being flagged.</div>
+          <ul class="plain" id="domains"></ul>
+        </section>
+        <section class="panel">
+          <h2>Names people used</h2>
+          <ul class="plain" id="names"></ul>
+        </section>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let results = [], filter = "likely", status = {};
+
+function el(tag, attrs = {}, ...kids) {
+  const n = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k.startsWith("on")) n.addEventListener(k.slice(2), v);
+    else n.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) n.append(k);  // strings become text nodes: no HTML injection
+  return n;
+}
+
+// build_pages.py replaces the null below with pre-scored sample emails, so the page
+// can run on GitHub Pages without the Python server.
+const DEMO_DATA = {"repo_url": "https://github.com/MaximilianJenius/not-me-mail", "config": {"username": "coolname@hotmail.sg", "auth": "password", "my_names": ["Alex"], "known_service_domains": ["shopee.sg"], "scan_folder": "INBOX", "target_folder": "Not Me"}, "messages": [{"base": {"uid": "1", "date": "2026-10-19T09:12:00+08:00", "from_name": "Zalora", "from_addr": "hello@mail.zalora.sg", "sender_domain": "zalora.sg", "to": "Ahmad Bin Ali <coolname@hotmail.sg>", "subject": "Welcome to Zalora - verify your email", "score": 7, "level": "likely", "reasons": ["Addressed to \"Ahmad Bin Ali\" in the To field", "Account/order email (\"Welcome to\") from zalora.sg, which isn't in your known services", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Ahmad"], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "1", "date": "2026-10-19T09:12:00+08:00", "from_name": "Zalora", "from_addr": "hello@mail.zalora.sg", "sender_domain": "zalora.sg", "to": "Ahmad Bin Ali <coolname@hotmail.sg>", "subject": "Welcome to Zalora - verify your email", "score": 4, "level": "likely", "reasons": ["Addressed to \"Ahmad Bin Ali\" in the To field", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Ahmad"], "unsubscribe": "https://example.com/unsub"}}, {"base": {"uid": "2", "date": "2026-10-18T20:01:00+08:00", "from_name": "Klook", "from_addr": "noreply@klook.com", "sender_domain": "klook.com", "to": "coolname@hotmail.sg", "subject": "Priya, your booking is confirmed", "score": 7, "level": "likely", "reasons": ["Subject uses the name \"Priya\"", "Account/order email (\"your booking\") from klook.com, which isn't in your known services", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Priya"], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "2", "date": "2026-10-18T20:01:00+08:00", "from_name": "Klook", "from_addr": "noreply@klook.com", "sender_domain": "klook.com", "to": "coolname@hotmail.sg", "subject": "Priya, your booking is confirmed", "score": 4, "level": "likely", "reasons": ["Subject uses the name \"Priya\"", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Priya"], "unsubscribe": "https://example.com/unsub"}}, {"base": {"uid": "3", "date": "2026-10-18T11:30:00+08:00", "from_name": "Shopee", "from_addr": "info@mail.shopee.sg", "sender_domain": "shopee.sg", "to": "Alex <coolname@hotmail.sg>", "subject": "Your order has shipped", "score": 1, "level": "clean", "reasons": ["Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Alex"], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "3", "date": "2026-10-18T11:30:00+08:00", "from_name": "Shopee", "from_addr": "info@mail.shopee.sg", "sender_domain": "shopee.sg", "to": "Alex <coolname@hotmail.sg>", "subject": "Your order has shipped", "score": 1, "level": "clean", "reasons": ["Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Alex"], "unsubscribe": "https://example.com/unsub"}}, {"base": {"uid": "4", "date": "2026-10-17T08:00:00+08:00", "from_name": "Deals Weekly", "from_addr": "news@dealsweekly.com", "sender_domain": "dealsweekly.com", "to": "undisclosed-recipients:;", "subject": "50% off this weekend only", "score": 2, "level": "possible", "reasons": ["Your address isn't in To/Cc (sent to: undisclosed recipients)", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": [], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "4", "date": "2026-10-17T08:00:00+08:00", "from_name": "Deals Weekly", "from_addr": "news@dealsweekly.com", "sender_domain": "dealsweekly.com", "to": "undisclosed-recipients:;", "subject": "50% off this weekend only", "score": 2, "level": "possible", "reasons": ["Your address isn't in To/Cc (sent to: undisclosed recipients)", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": [], "unsubscribe": "https://example.com/unsub"}}, {"base": {"uid": "5", "date": "2026-10-16T18:45:00+08:00", "from_name": "FitClub", "from_addr": "team@fitclub.sg", "sender_domain": "fitclub.sg", "to": "coolname@hotmail.sg", "subject": "Thanks for signing up!", "score": 7, "level": "likely", "reasons": ["Greets \"John\" in the body", "Account/order email (\"Thanks for signing up\") from fitclub.sg, which isn't in your known services", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["John"], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "5", "date": "2026-10-16T18:45:00+08:00", "from_name": "FitClub", "from_addr": "team@fitclub.sg", "sender_domain": "fitclub.sg", "to": "coolname@hotmail.sg", "subject": "Thanks for signing up!", "score": 4, "level": "likely", "reasons": ["Greets \"John\" in the body", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["John"], "unsubscribe": "https://example.com/unsub"}}, {"base": {"uid": "6", "date": "2026-10-16T07:10:00+08:00", "from_name": "Mum", "from_addr": "mum@gmail.com", "sender_domain": "gmail.com", "to": "coolname@hotmail.sg", "subject": "dinner sunday?", "score": 0, "level": "clean", "reasons": [], "names_seen": ["Alex"], "unsubscribe": ""}, "if_mine": {"uid": "6", "date": "2026-10-16T07:10:00+08:00", "from_name": "Mum", "from_addr": "mum@gmail.com", "sender_domain": "gmail.com", "to": "coolname@hotmail.sg", "subject": "dinner sunday?", "score": 0, "level": "clean", "reasons": [], "names_seen": ["Alex"], "unsubscribe": ""}}, {"base": {"uid": "7", "date": "2026-10-15T12:00:00+08:00", "from_name": "Zalora", "from_addr": "hello@mail.zalora.sg", "sender_domain": "zalora.sg", "to": "Ahmad Bin Ali <coolname@hotmail.sg>", "subject": "Ahmad, new arrivals for you", "score": 4, "level": "likely", "reasons": ["Addressed to \"Ahmad Bin Ali\" in the To field", "Subject uses the name \"Ahmad\"", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Ahmad"], "unsubscribe": "https://example.com/unsub"}, "if_mine": {"uid": "7", "date": "2026-10-15T12:00:00+08:00", "from_name": "Zalora", "from_addr": "hello@mail.zalora.sg", "sender_domain": "zalora.sg", "to": "Ahmad Bin Ali <coolname@hotmail.sg>", "subject": "Ahmad, new arrivals for you", "score": 4, "level": "likely", "reasons": ["Addressed to \"Ahmad Bin Ali\" in the To field", "Subject uses the name \"Ahmad\"", "Bulk/marketing mail (List-Unsubscribe)"], "names_seen": ["Ahmad"], "unsubscribe": "https://example.com/unsub"}}]};
+const demo = { list: [], mine: new Set() };
+
+function summarize(rs) {
+  const count = (keys) => {
+    const m = new Map();
+    for (const k of keys) m.set(k, (m.get(k) || 0) + 1);
+    return [...m.entries()].sort((a, b) => b[1] - a[1]);
+  };
+  const flagged = rs.filter(r => r.level !== "clean");
+  return {
+    scanned: rs.length,
+    likely: rs.filter(r => r.level === "likely").length,
+    possible: rs.filter(r => r.level === "possible").length,
+    top_domains: count(flagged.map(r => r.sender_domain).filter(Boolean)).slice(0, 15),
+    top_names: count(flagged.flatMap(r => r.names_seen)).slice(0, 10),
+  };
+}
+
+function demoApi(path, body) {
+  const view = () => {
+    const rs = demo.list.map(m => demo.mine.has(m.base.sender_domain) ? m.if_mine : m.base);
+    return { results: rs, summary: summarize(rs) };
+  };
+  if (path === "/api/status") return { configured: true, ...DEMO_DATA.config };
+  if (path === "/api/scan") { demo.list = DEMO_DATA.messages.slice(0, body.limit); return view(); }
+  if (path === "/api/known-service") { demo.mine.add(body.domain); return view(); }
+  if (path === "/api/move") {
+    const gone = new Set(body.uids);
+    demo.list = demo.list.filter(m => !gone.has(m.base.uid));
+    return { message: `[demo] Moved ${gone.size} message(s) to '${DEMO_DATA.config.target_folder}'.`, ...view() };
+  }
+  throw new Error("Not available in the demo.");
+}
+
+async function api(path, body) {
+  if (DEMO_DATA) return demoApi(path, body);
+  const opts = body === undefined ? {} :
+    { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) };
+  const r = await fetch(path, opts);
+  const data = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+  if (!r.ok || data.error) throw new Error(data.error || `HTTP ${r.status}`);
+  return data;
+}
+
+function say(text, isErr = false) { $("msg").textContent = text; $("msg").className = isErr ? "err" : "muted"; }
+
+async function refreshStatus() {
+  status = await api("/api/status");
+  const acct = $("account"), login = $("login");
+  login.classList.add("hidden");
+  if (!status.configured) { acct.textContent = status.error; $("scanBtn").disabled = true; return; }
+  acct.replaceChildren(
+    "Mailbox: ", el("b", {}, status.username || "?"),
+    ` · your names: ${status.my_names.join(", ") || "(none set - wrong-name check is off)"}`,
+    ` · flagged mail moves to "${status.target_folder}"`);
+  if (status.auth !== "outlook_oauth") return;
+  login.classList.remove("hidden");
+  if (status.signed_in) {
+    login.replaceChildren(`Signed in to Microsoft as ${status.signed_in} `,
+      el("button", { onclick: async () => { await api("/api/logout", {}); refreshStatus(); } }, "Sign out"));
+  } else if (status.login_pending) {
+    login.replaceChildren(
+      el("div", {}, "Open ", el("a", { href: status.verification_uri, target: "_blank", rel: "noopener" }, status.verification_uri),
+        " and enter this code:"),
+      el("div", { class: "code" }, status.user_code),
+      el("div", { class: "muted" }, "Waiting for you to finish signing in…"));
+    setTimeout(refreshStatus, 3000);
+  } else {
+    login.replaceChildren(
+      status.login_error ? el("div", { style: "color:var(--likely)" }, status.login_error) : "",
+      el("button", { class: "primary", onclick: async () => {
+        try { await api("/api/login", {}); refreshStatus(); } catch (e) { say(e.message, true); } } },
+        "Sign in with Microsoft"));
+  }
+  $("scanBtn").disabled = !status.signed_in;
+}
+
+function visible() {
+  return results.filter(r => filter === "all" || (filter === "flagged" ? r.level !== "clean" : r.level === filter));
+}
+
+function render(summary) {
+  $("resultsArea").classList.remove("hidden");
+  if (summary) {
+    $("cScanned").textContent = summary.scanned;
+    $("cLikely").textContent = summary.likely;
+    $("cPossible").textContent = summary.possible;
+    $("domains").replaceChildren(...(summary.top_domains.length ? summary.top_domains.map(([d, n]) =>
+      el("li", {}, el("span", {}, d, el("span", { class: "muted" }, ` · ${n}`)),
+        el("button", { onclick: () => markMine(d) }, "It's mine"))) : [el("li", { class: "muted" }, "None")]));
+    $("names").replaceChildren(...(summary.top_names.length ? summary.top_names.map(([nm, n]) =>
+      el("li", {}, nm, el("span", { class: "muted" }, String(n)))) : [el("li", { class: "muted" }, "None")]));
+  }
+  const rows = visible().map(r => {
+    const reasons = el("ul", { class: "reasons" }, ...r.reasons.map(x => el("li", {}, x)));
+    if (r.unsubscribe && /^https?:/i.test(r.unsubscribe)) {
+      reasons.append(el("li", {}, el("a", { href: r.unsubscribe, target: "_blank", rel: "noopener noreferrer",
+        title: "Unsubscribing tells the sender your address is real. Only use it for senders you trust." },
+        "Unsubscribe link")));
+    }
+    const d = new Date(r.date);
+    return el("tr", {},
+      el("td", {}, el("input", { type: "checkbox", "data-uid": r.uid, onchange: updateMoveBtn })),
+      el("td", {}, el("span", { class: `badge ${r.level}` }, r.level), el("div", { class: "muted" }, `score ${r.score}`)),
+      el("td", {}, el("div", {}, r.from_name || r.from_addr), el("div", { class: "muted" }, r.from_addr)),
+      el("td", { class: "subj" }, el("b", {}, r.subject || "(no subject)"), reasons),
+      el("td", { class: "muted" }, isNaN(d) ? r.date : d.toLocaleDateString()));
+  });
+  $("rows").replaceChildren(...(rows.length ? rows : [el("tr", {}, el("td", { colspan: 5, class: "muted" }, "Nothing here."))]));
+  $("selAll").checked = false;
+  updateMoveBtn();
+}
+
+function checked() { return [...document.querySelectorAll("#rows input[data-uid]:checked")].map(c => c.dataset.uid); }
+function updateMoveBtn() {
+  const n = checked().length;
+  $("moveBtn").disabled = n === 0;
+  $("moveBtn").textContent = n ? `Move ${n} to "${status.target_folder}"` : "Move to folder";
+}
+
+async function markMine(domain) {
+  try { const d = await api("/api/known-service", { domain }); results = d.results; render(d.summary);
+        say(`${domain} added to your known services.`); }
+  catch (e) { say(e.message, true); }
+}
+
+$("scanBtn").onclick = async () => {
+  $("scanBtn").disabled = true; say("Scanning… this can take a minute.");
+  try {
+    const d = await api("/api/scan", { days: +$("days").value, limit: +$("limit").value });
+    results = d.results; render(d.summary);
+    say(`Done. ${d.summary.likely} likely and ${d.summary.possible} possible.`);
+  } catch (e) { say(e.message, true); }
+  $("scanBtn").disabled = false;
+};
+
+$("moveBtn").onclick = async () => {
+  const uids = checked();
+  if (!confirm(`Move ${uids.length} email(s) to the "${status.target_folder}" folder? You can move them back from there in your mail app.`)) return;
+  $("moveBtn").disabled = true;
+  try { const d = await api("/api/move", { uids }); results = d.results; render(d.summary); say(d.message); }
+  catch (e) { say(e.message, true); updateMoveBtn(); }
+};
+
+$("selAll").onchange = (e) => {
+  document.querySelectorAll("#rows input[data-uid]").forEach(c => c.checked = e.target.checked);
+  updateMoveBtn();
+};
+
+$("tabs").onclick = (e) => {
+  const f = e.target.dataset && e.target.dataset.f; if (!f) return;
+  filter = f;
+  document.querySelectorAll("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.f === f));
+  render();
+};
+
+if (DEMO_DATA) {
+  $("demoBanner").classList.remove("hidden");
+  $("repoLink").href = DEMO_DATA.repo_url;
+}
+refreshStatus().catch(e => { $("account").textContent = e.message; });
+</script>
+</body>
+</html>
